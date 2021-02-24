@@ -1,0 +1,10 @@
+# Log file
+*.log
+
+.DS_Store
+
+shared/data
+shared/results
+
+*.pyc
+*.png
