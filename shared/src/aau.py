@@ -66,18 +66,6 @@ def save_activities_file(aau_logs):
 
     return logs
 
-def save_aau_run(folder, activities):
-    if not os.path.exists(folder):
-        os.mkdir(folder)
-    
-    tfolder = folder + '/aau'
-    if not os.path.exists(tfolder):
-        os.mkdir(tfolder)
-
-    for run in activities.keys():
-        f = run.replace('(', '_').replace(')', '')
-        filename = tfolder + '/' + f + '.log'
-        logutils.save_logs(filename, activities[run])
 '''
 def find_aau_runs(aau_runs, logs):
     activities = {}
@@ -91,17 +79,30 @@ def find_aau_runs(aau_runs, logs):
 
     return activities
 '''
+def log_to_json(log):
+    e = {}
+    e['date'] = log[0]
+    e['level'] = log[1]
+    e['class'] = log[2]
+    e['thread'] = log[3]
+    e['message'] = log[4]
+
+    return json.dumps(e)
+
 
 def find_aau_runs(aau_runs, logs):
     activities = {}
     for run in aau_runs:
         id = run.replace('(', '.').replace(')', '.')
-        pattern = ACTIVITY_LOG_PATTERN_BEGIN + run + ACTIVITY_LOG_PATTERN_END
-        pattern = pattern.replace('(', '.').replace(')', '.')
+        pattern = ACTIVITY_LOG_PATTERN_BEGIN + id + ACTIVITY_LOG_PATTERN_END
         patterns = logutils.find_patterns(logs, pattern)
         pattern = pattern[:len(pattern)-2]
         print(id + ':' + str(len(patterns)))
-        activities[id] = patterns
+        events = []
+        for p in patterns:
+            event = log_to_json(p)
+            events.append(event)
+        activities[id] = events
 
     return activities
 
@@ -122,6 +123,19 @@ def processAAU(folder, tenantlogs):
 
     return activities
 
+def save_aau_run(folder, activities):
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+    
+    tfolder = folder + '/aau'
+    if not os.path.exists(tfolder):
+        os.mkdir(tfolder)
+
+    for run in activities.keys():
+        f = run.replace('(', '_').replace(')', '')
+        filename = tfolder + '/' + f + 'json'
+        logutils.save_logs(filename, activities[run])
+
 def main():
     # look for AAU in tenant logs
     activities = {}
@@ -133,6 +147,8 @@ def main():
 
     # save the activities in the base folder
     save_aau_run(logutils.RESULTS_DIR, activities)
+
+    # convert the logs for each run into json records
 
 # Start program
 if __name__ == "__main__":

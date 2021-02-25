@@ -95,5 +95,5 @@ def save_logs(filename, logs):
     tfile = open(filename, 'w')
     for log in logs:
         #print(log + '\n')
-        tfile.writelines(log + '\n')
+        tfile.writelines(str(log) + '\n')
     tfile.close()
