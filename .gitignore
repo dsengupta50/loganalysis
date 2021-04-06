@@ -4,6 +4,7 @@
 .DS_Store
 
 shared/data
+shared/glove
 shared/results
 
 *.pyc

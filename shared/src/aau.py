@@ -15,6 +15,12 @@ vms_timedout = r'(ACTIVITY_ID\(\d\d\d\d\d\d\))(.*Agent Update thread timeout.*)'
 start_summary_regex = logutils.log_date_format + r'.*(ACTIVITY_ID\(\d+\): Created a fabric task to update agents on a pool\/Image\. pool_id:.*)'
 end_summary_regex = logutils.log_date_format + r'.*POOL_TASK_UPDATES.*(ACTIVITY_ID\(\d+\): VM count.*)'
 
+# these are AAU specific patterns to turn to * in the messages
+aau_star_regex      = [
+    r'(?<=vmName\=)([A-Za-z0-9\-])+(?=\,)', # AAU log specific: name=<xyz>,
+    r'(?<=application\=)([A-Za-z0-9\-])+(?=\,)', # AAU log specific: application=<xyz>,
+    r'(?<=poolOrPatternName: )([A-Za-z0-9\-])+(?=\,)' # AAU log specific: groupName=<xyz>,
+]
 
 '''
 We want to summarize every AAU activity run with the following parameters:
@@ -66,28 +72,17 @@ def save_activities_file(aau_logs):
 
     return logs
 
-'''
-def find_aau_runs(aau_runs, logs):
-    activities = {}
-    for run in aau_runs:
-        id = run.replace('(', '.').replace(')', '.')
-        pattern = ACTIVITY_LOG_PATTERN_BEGIN + run + ACTIVITY_LOG_PATTERN_END
-        pattern = pattern.replace('(', '.').replace(')', '.')
-        patterns = re.findall(pattern, logs)
-        print(id + ':' + str(len(patterns)))
-        activities[id] = patterns
-
-    return activities
-'''
 def log_to_json(log):
     e = {}
     e['date'] = log[0]
     e['level'] = log[1]
     e['class'] = log[2]
     e['thread'] = log[3]
-    e['message'] = log[4]
 
-    return json.dumps(e)
+    message = utils.std_starrify_message(log[4])
+    e['message'] = utils.starrify_message(message, aau_star_regex)
+
+    return e
 
 
 def find_aau_runs(aau_runs, logs):
@@ -134,7 +129,7 @@ def save_aau_run(folder, activities):
     for run in activities.keys():
         f = run.replace('(', '_').replace(')', '')
         filename = tfolder + '/' + f + 'json'
-        logutils.save_logs(filename, activities[run])
+        utils.save_json(filename, activities[run])
 
 def main():
     # look for AAU in tenant logs
