@@ -3,6 +3,7 @@ import logutils
 import re
 import os
 import json
+import numpy as np
 
 ALL_ACTIVITIES_LOGFILE = 'all_activities.log'
 AAU_LOG_PATTERN = r'\d{4}\-\d{2}\-\d{2}\s\d{2}:\d{2}:\d{2},\d{3}\s[\S]+\s\s\[[\S]+\]\s[\S]+\s'
@@ -14,6 +15,9 @@ vms_failed_update = r'(ACTIVITY_ID\(\d\d\d\d\d\d\))(.*Agent Update failed.*)'
 vms_timedout = r'(ACTIVITY_ID\(\d\d\d\d\d\d\))(.*Agent Update thread timeout.*)'
 start_summary_regex = logutils.log_date_format + r'.*(ACTIVITY_ID\(\d+\): Created a fabric task to update agents on a pool\/Image\. pool_id:.*)'
 end_summary_regex = logutils.log_date_format + r'.*POOL_TASK_UPDATES.*(ACTIVITY_ID\(\d+\): VM count.*)'
+
+# activities with no failures
+zero_failure_activity_regex = 'ACTIVITY_ID.*Finished updating all VM.*0 failures'
 
 # these are AAU specific patterns to turn to * in the messages
 aau_star_regex      = [
@@ -111,14 +115,18 @@ def processAAU(folder, tenantlogs):
     aau_logs = save_activities_file(aau)
     aau_runs = get_unique_aau_runs(aau)
 
+    zero_failures = re.findall(AAU_LOG_PATTERN + zero_failure_activity_regex, logs)
+    zero_failure_runs = get_unique_aau_runs(zero_failures)
+
+#    print("The following had no failures:" + str(zero_failure_runs))
 #    print("The following AAU runs were identified:\t" + str(aau_runs))
 
     # save the individual runs into log files
     activities = find_aau_runs(aau_runs, aau_logs)
 
-    return activities
+    return activities, zero_failure_runs
 
-def save_aau_run(folder, activities):
+def save_aau_run(folder, activities, zero_failures):
     if not os.path.exists(folder):
         os.mkdir(folder)
     
@@ -126,24 +134,34 @@ def save_aau_run(folder, activities):
     if not os.path.exists(tfolder):
         os.mkdir(tfolder)
 
+    testfolder = folder + '/aau_test'
+    if not os.path.exists(testfolder):
+        os.mkdir(testfolder)
+
     for run in activities.keys():
         f = run.replace('(', '_').replace(')', '')
-        filename = tfolder + '/' + f + 'json'
+        if run in zero_failures:
+            filename = tfolder + '/' + f + 'json'
+        else:
+            filename = testfolder + '/' + f + 'json' 
         utils.save_json(filename, activities[run])
 
 def main():
     # look for AAU in tenant logs
     activities = {}
+    zero_failures = []
     for folder in logutils.get_log_dirs():
         print("Processing AAU activity in " + folder)
-        activity_logs = processAAU(folder, logutils.TENANT_LOG_FILE)
+        activity_logs, no_fails = processAAU(folder, logutils.TENANT_LOG_FILE)
         activities = utils.merge_dicts_with_arrays(activities, activity_logs)
+        for success in no_fails:
+            zero_failures.append(success.replace('(', '.').replace(')', '.'))
+        
         print('\n')
 
     # save the activities in the base folder
-    save_aau_run(logutils.RESULTS_DIR, activities)
-
-    # convert the logs for each run into json records
+    print('All activities with no failures - ' + str(zero_failures))
+    save_aau_run(logutils.RESULTS_DIR, activities, zero_failures)
 
 # Start program
 if __name__ == "__main__":

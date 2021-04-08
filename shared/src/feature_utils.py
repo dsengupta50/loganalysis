@@ -159,22 +159,23 @@ def pretrained_embedding_layer(word_to_vec_map, word_to_index):
     
     return embedding_layer
 
-def get_data():
+def get_data(folder):
     max_len = 20
     X_data = np.empty([0, max_len])
-    aau_folder = logutils.RESULTS_DIR + "/aau"
-    for f in os.listdir(aau_folder):
+    X_all = []
+    for f in os.listdir(folder):
         if f.startswith("."):
             continue
 
-        X = get_logs_from_json(aau_folder + "/" + f)
+        X = get_logs_from_json(folder + "/" + f)
+        X_all = np.append(X_all, X)
         X_log = sentences_to_indices(X, word_to_index, max_len)
         X_data = np.insert(X_data, X_data.shape[0], X_log, axis=0)
-        # print(str(X_data.shape) + ":" + str(X_log.shape))
-        #print(f + ":" + str(X_train.shape))
-        #print(X_train[1])
+        #print(str(X_data.shape) + ":" + str(X_log.shape))
 
-    return X_data    
+    #print(f + ":" + str(X_all.shape))
+    #print(X_all[1])
+    return X_data, X_all    
 
 def main():
     print("Hello feature extraction")
