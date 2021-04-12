@@ -1,5 +1,7 @@
 import utils
 import logutils
+
+import sys
 import re
 import os
 import json
@@ -76,15 +78,14 @@ def save_activities_file(aau_logs):
 
     return logs
 
-def log_to_json(log):
+def log_to_json(run, log):
     e = {}
+    e['activity'] = run
     e['date'] = log[0]
     e['level'] = log[1]
     e['class'] = log[2]
     e['thread'] = log[3]
-
-    message = utils.std_starrify_message(log[4])
-    e['message'] = utils.starrify_message(message, aau_star_regex)
+    e['message'] = log[4]
 
     return e
 
@@ -99,14 +100,14 @@ def find_aau_runs(aau_runs, logs):
         print(id + ':' + str(len(patterns)))
         events = []
         for p in patterns:
-            event = log_to_json(p)
+            event = log_to_json(run, p)
             events.append(event)
         activities[id] = events
 
     return activities
 
 def processAAU(folder, tenantlogs):
-    tfile = open(folder + '/desktone/' + tenantlogs, 'r')
+    tfile = open(folder + '/' + tenantlogs, 'r')
     logs = tfile.read()
     tfile.close()
 
@@ -126,7 +127,7 @@ def processAAU(folder, tenantlogs):
 
     return activities, zero_failure_runs
 
-def save_aau_run(folder, activities, zero_failures):
+def save_aau_train_test_runs(folder, activities, zero_failures):
     if not os.path.exists(folder):
         os.mkdir(folder)
     
@@ -146,22 +147,52 @@ def save_aau_run(folder, activities, zero_failures):
             filename = testfolder + '/' + f + 'json' 
         utils.save_json(filename, activities[run])
 
-def main():
-    # look for AAU in tenant logs
-    activities = {}
-    zero_failures = []
-    for folder in logutils.get_log_dirs():
-        print("Processing AAU activity in " + folder)
-        activity_logs, no_fails = processAAU(folder, logutils.TENANT_LOG_FILE)
-        activities = utils.merge_dicts_with_arrays(activities, activity_logs)
-        for success in no_fails:
-            zero_failures.append(success.replace('(', '.').replace(')', '.'))
-        
-        print('\n')
+def save_aau_runs(name, activities):
+    folder = logutils.RESULTS_DIR
+    if not os.path.exists(folder):
+        os.mkdir(folder)
+    
+    tfolder = folder + '/' + name
+    if not os.path.exists(tfolder):
+        os.mkdir(tfolder)
 
-    # save the activities in the base folder
-    print('All activities with no failures - ' + str(zero_failures))
-    save_aau_run(logutils.RESULTS_DIR, activities, zero_failures)
+    for run in activities.keys():
+        f = run.replace('(', '_').replace(')', '')
+        filename = tfolder + '/' + f + 'json'
+        utils.save_json(filename, activities[run])
+
+def extract_aau_events(folder):
+    data_folder = logutils.LOG_BASE_DIR + '/' + folder
+    print("Processing AAU activity in " + data_folder)
+    activity_logs, no_fails = processAAU(data_folder, logutils.TENANT_LOG_FILE)
+    save_aau_runs(folder, activity_logs)
+
+
+def main():
+    args = sys.argv[1:]
+
+    if not args:
+        # look for AAU in tenant logs
+        activities = {}
+        zero_failures = []
+        for folder in logutils.get_log_dirs():
+            print("Processing AAU activity in " + folder)
+            activity_logs, no_fails = processAAU(folder, logutils.TENANT_LOG_FILE)
+            activities = utils.merge_dicts_with_arrays(activities, activity_logs)
+            for success in no_fails:
+                zero_failures.append(success.replace('(', '.').replace(')', '.'))
+            
+            print('\n')
+
+        # save the activities in the base folder
+        print('All activities with no failures - ' + str(zero_failures))
+        save_aau_train_test_runs(logutils.RESULTS_DIR, activities, zero_failures)
+    elif (args[0] == '-f'):
+        folder = args[1]
+        extract_aau_events(folder)
+    else:
+        print ("Invalid arguments " + args)
+
 
 # Start program
 if __name__ == "__main__":

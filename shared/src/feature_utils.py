@@ -1,3 +1,5 @@
+import utils
+
 import numpy as np
 import json
 import os
@@ -110,16 +112,6 @@ def sentences_to_indices(X, word_to_index, max_len):
                 
     return X_indices
 
-def get_logs_from_json(filename):
-    messages = []
-    f = open(filename, 'r')
-    json_data = json.load(f)
-    for obj in json_data:
-        messages.append(obj['message'])
-
-    return np.asarray(messages)
-
-
 def pretrained_embedding_layer(word_to_vec_map, word_to_index):
     """
     Creates a Keras Embedding() layer and loads in pre-trained GloVe 300-dimensional vectors.
@@ -159,7 +151,16 @@ def pretrained_embedding_layer(word_to_vec_map, word_to_index):
     
     return embedding_layer
 
-def get_data(folder):
+def get_logs_from_json(filename):
+    messages = []
+    f = open(filename, 'r')
+    json_data = json.load(f)
+#    for obj in json_data:
+#        messages.append(obj['message'])
+
+    return np.asarray(json_data)
+
+def get_data(folder, clean_regex):
     max_len = 20
     X_data = np.empty([0, max_len])
     X_all = []
@@ -169,7 +170,16 @@ def get_data(folder):
 
         X = get_logs_from_json(folder + "/" + f)
         X_all = np.append(X_all, X)
-        X_log = sentences_to_indices(X, word_to_index, max_len)
+
+        # pre-process to remove variables from the log messages
+        X_clean = []
+        for x in X:
+            message = x['message']
+            message = utils.std_starrify_message(message)
+            message = utils.starrify_message(message, clean_regex)
+            X_clean.append(message)
+
+        X_log = sentences_to_indices(np.asarray(X_clean), word_to_index, max_len)
         X_data = np.insert(X_data, X_data.shape[0], X_log, axis=0)
         #print(str(X_data.shape) + ":" + str(X_log.shape))
 
