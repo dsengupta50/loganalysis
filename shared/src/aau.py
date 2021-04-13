@@ -1,5 +1,6 @@
 import utils
 import logutils
+import anomaly_detection
 
 import sys
 import re
@@ -14,7 +15,7 @@ ACTIVITY_LOG_PATTERN_END = r':\s(.*)'
 
 vms_user_connected = r'ACTIVITY_ID\(\d\d\d\d\d\d\).*Admin chose not to update VMs with logged in users.*'
 vms_failed_update = r'(ACTIVITY_ID\(\d\d\d\d\d\d\))(.*Agent Update failed.*)'
-vms_timedout = r'(ACTIVITY_ID\(\d\d\d\d\d\d\))(.*Agent Update thread timeout.*)'
+vms_timedout = r'(ACTIVITY_ID\(\d\d\d\d\d\d\))(.*Agent Update thread ti`meout.*)'
 start_summary_regex = logutils.log_date_format + r'.*(ACTIVITY_ID\(\d+\): Created a fabric task to update agents on a pool\/Image\. pool_id:.*)'
 end_summary_regex = logutils.log_date_format + r'.*POOL_TASK_UPDATES.*(ACTIVITY_ID\(\d+\): VM count.*)'
 
@@ -27,6 +28,11 @@ aau_star_regex      = [
     r'(?<=application\=)([A-Za-z0-9\-])+(?=\,)', # AAU log specific: application=<xyz>,
     r'(?<=poolOrPatternName: )([A-Za-z0-9\-])+(?=\,)' # AAU log specific: groupName=<xyz>,
 ]
+
+# folders where the results from the activities are stored in a json file for training and test
+TRAINING_FOLDER = logutils.RESULTS_DIR + "/aau"
+TEST_FOLDER = logutils.RESULTS_DIR + "/aau_test"
+TRAINED_MODEL_FILENAME = TRAINING_FOLDER + "/aau.clf"
 
 '''
 We want to summarize every AAU activity run with the following parameters:
@@ -187,11 +193,23 @@ def main():
         # save the activities in the base folder
         print('All activities with no failures - ' + str(zero_failures))
         save_aau_train_test_runs(logutils.RESULTS_DIR, activities, zero_failures)
+
+        # train the model on successful runs
+        anomaly_detection.train_and_save_model(TRAINING_FOLDER, aau_star_regex, TRAINED_MODEL_FILENAME)
+
+        # test the model on trained model
+        anomaly_detection.predict(TEST_FOLDER, aau_star_regex, TRAINED_MODEL_FILENAME)
+
     elif (args[0] == '-f'):
         folder = args[1]
         extract_aau_events(folder)
+
+        # predict the anomalies for the given folder
+        anomaly_detection.predict(logutils.RESULTS_DIR + "/" + folder, aau_star_regex, TRAINED_MODEL_FILENAME)
     else:
         print ("Invalid arguments " + args)
+
+
 
 
 # Start program
