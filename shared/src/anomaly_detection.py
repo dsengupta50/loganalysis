@@ -14,9 +14,12 @@ def main():
 def train_and_save_model(training_folder, feature_star_regex, model_filename):
     clf_name = 'KNN'
     clf = KNN()
-    X_train, X_messages = feature_utils.get_data(training_folder, feature_star_regex)
+    print("Getting data from " + training_folder)
+    X_train, X_messages = feature_utils.get_data(training_folder, feature_star_regex, False)
+    print ("Got data ")
 
     clf.fit(X_train)
+    print("Completed fitting data")
 
     dump(clf, model_filename)
 
@@ -24,7 +27,7 @@ def predict(data_folder, feature_star_regex, model_filename):
     clf = load(model_filename)
 
     print("Detecting anomalies on " + data_folder)
-    X_test, X = feature_utils.get_data(data_folder, feature_star_regex)
+    X_test, X = feature_utils.get_data(data_folder, feature_star_regex, True)
 
     # get the prediction on the test data
     y_test_pred = clf.predict(X_test)  # outlier labels (0 or 1)

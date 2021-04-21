@@ -9,8 +9,8 @@ import json
 import numpy as np
 
 ALL_ACTIVITIES_LOGFILE = 'all_activities.log'
-AAU_LOG_PATTERN = r'\d{4}\-\d{2}\-\d{2}\s\d{2}:\d{2}:\d{2},\d{3}\s[\S]+\s\s\[[\S]+\]\s[\S]+\s'
-ACTIVITY_LOG_PATTERN_BEGIN = r'(\d{4}\-\d{2}\-\d{2}\s\d{2}:\d{2}:\d{2},\d{3})\s([\S]+)\s\s\[([\S]+)\]-(\[[\S]+)\]\s[\S]+\s'
+AAU_LOG_PATTERN = r'\d{4}\-\d{2}\-\d{2}\s\d{2}:\d{2}:\d{2},\d{3}\s[\S]+\s+\[[\S]+\]\s+[\S]+\s+.*'
+ACTIVITY_LOG_PATTERN_BEGIN = r'(\d{4}\-\d{2}\-\d{2}\s\d{2}:\d{2}:\d{2},\d{3})\s([\S]+)\s+\[([\S]+)\]-(\[[\S]+)\]\s[\S]+\s+.*'
 ACTIVITY_LOG_PATTERN_END = r':\s(.*)'
 
 vms_user_connected = r'ACTIVITY_ID\(\d\d\d\d\d\d\).*Admin chose not to update VMs with logged in users.*'
@@ -24,9 +24,9 @@ zero_failure_activity_regex = 'ACTIVITY_ID.*Finished updating all VM.*0 failures
 
 # these are AAU specific patterns to turn to * in the messages
 aau_star_regex      = [
-    r'(?<=vmName\=)([A-Za-z0-9\-])+(?=\,)', # AAU log specific: name=<xyz>,
-    r'(?<=application\=)([A-Za-z0-9\-])+(?=\,)', # AAU log specific: application=<xyz>,
-    r'(?<=poolOrPatternName: )([A-Za-z0-9\-])+(?=\,)' # AAU log specific: groupName=<xyz>,
+    r'(?<=vmName\=)([A-Za-z0-9\-])+(?=\,)',
+    r'(?<=application\=)([A-Za-z0-9\-])+(?=\,)',
+    r'(?<=poolOrPatternName: )([A-Za-z0-9\-])+(?=\,)'
 ]
 
 # folders where the results from the activities are stored in a json file for training and test
@@ -118,6 +118,7 @@ def processAAU(folder, tenantlogs):
     tfile.close()
 
     aau = re.findall(AAU_LOG_PATTERN + 'ACTIVITY_ID.*', logs)
+#    aau = re.findall(r'ACTIVITY_ID\(\d+\)', logs)
     print("Found " + str(len(aau)) + " AAU logs")
     aau_logs = save_activities_file(aau)
     aau_runs = get_unique_aau_runs(aau)
@@ -197,8 +198,14 @@ def main():
         # train the model on successful runs
         anomaly_detection.train_and_save_model(TRAINING_FOLDER, aau_star_regex, TRAINED_MODEL_FILENAME)
 
+    elif (args[0] == '-test'):
         # test the model on trained model
         anomaly_detection.predict(TEST_FOLDER, aau_star_regex, TRAINED_MODEL_FILENAME)
+
+    elif (args[0]=='-bm'):
+        print("Building model ")
+        # only build the model based on training data in the TRAINING_FOLDER
+        anomaly_detection.train_and_save_model(TRAINING_FOLDER, aau_star_regex, TRAINED_MODEL_FILENAME)
 
     elif (args[0] == '-f'):
         folder = args[1]

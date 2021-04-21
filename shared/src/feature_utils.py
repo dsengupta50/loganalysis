@@ -56,7 +56,8 @@ def get_word_value(map, word):
     if word in map:
         return map.get(word)
 
-    return map.get('unknown') 
+    #print("NOT IN GLOVE:\t" + word)
+    return map.get('unknown')
 
 '''
 This function pre-processes the input text before training and prediction.
@@ -160,16 +161,17 @@ def get_logs_from_json(filename):
 
     return np.asarray(json_data)
 
-def get_data(folder, clean_regex):
-    max_len = 20
+def get_data(folder, clean_regex, need_messages):
+    max_len = 40
     X_data = np.empty([0, max_len])
     X_all = []
     for f in os.listdir(folder):
-        if f.startswith("."):
+        if not f.endswith(".json"):
             continue
 
         X = get_logs_from_json(folder + "/" + f)
-        X_all = np.append(X_all, X)
+        if need_messages:
+            X_all = np.append(X_all, X)
 
         # pre-process to remove variables from the log messages
         X_clean = []
